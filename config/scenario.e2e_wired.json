@@ -1,0 +1,24 @@
+{
+  "_comment": "Integration fixture for `tevnnis-core --md-source grpc` and scripts/run_e2e.sh. Unlike config/scenario.example.json, this file carries NO `market_data` -- events come from a real tevnnis-md subprocess replaying md/scenarios/e2e_wired.json over gRPC; only `broker` and `llm` are scripted here. COUPLING NOTE: the BUY's cited_event_ids hardcodes md's deterministic event id scheme (\"quote:\" + symbol + \":\" + event_ts, from DataUnifier::UnifyQuote in md/src/data_unifier.cpp) for the NVDA quote event in md/scenarios/e2e_wired.json. If that fixture's symbol or event_ts ever changes, this id must change with it. core/tests/test_e2e_wired_md.py and core/scripts/assert_e2e_db.py both independently recompute the expected id from the md fixture and assert it matches what got persisted AND what this file cites, so a drift here fails loudly instead of passing on a coincidence.",
+  "broker": {
+    "initial_cash": 10000,
+    "fill_mode": "immediate_full"
+  },
+  "llm": [
+    {
+      "session_note": "Momentum on NVDA with volume confirmation; sizing small.",
+      "instructions": [
+        {
+          "action": "BUY",
+          "symbol": "NVDA.US",
+          "quantity": 10,
+          "limit_price": 105.5,
+          "valid_seconds": 300,
+          "confidence": 0.75,
+          "thesis": "Crossed two escalation bands on the first tick; entry sized well inside the position cap.",
+          "cited_event_ids": ["quote:NVDA.US:1700000060000"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "scenario": "example_basic",
+  "description": "One symbol with a quote move, a related news item, then a follow-up quote move — used to drive the md pipeline deterministically offline (§13).",
+  "events": [
+    {
+      "type": "quote",
+      "event_ts": 1000,
+      "symbol": "AAPL.US",
+      "last_price": 150.0,
+      "prev_close": 145.0,
+      "volume": 120000
+    },
+    {
+      "type": "news",
+      "event_ts": 2000,
+      "news_id": "n-001",
+      "title": "Apple unveils new product line",
+      "source": "Reuters",
+      "url": "https://example.com/news/n-001",
+      "related_symbols": ["AAPL.US"]
+    },
+    {
+      "type": "quote",
+      "event_ts": 3000,
+      "symbol": "AAPL.US",
+      "last_price": 154.5,
+      "prev_close": 145.0,
+      "volume": 138500
+    }
+  ]
+}

@@ -1,0 +1,83 @@
+{
+  "scenario": "stage3_pipeline",
+  "description": "Drives every Stage 3 pipeline path deterministically (§4.1-§4.4): universe filtering, band escalation, in-band collapse, per-symbol cooldown, exact and near-duplicate news, a CRITICAL move, a CRITICAL halt, and a market-wide status. Timestamps are epoch millis at one-minute spacing from 1700000000000. The sector rate cap is exercised in unit tests instead, where a small N keeps the fixture readable.",
+  "events": [
+    {
+      "type": "quote", "event_ts": 1700000000000, "symbol": "NVDA.US",
+      "last_price": 100.0, "prev_close": 100.0, "volume": 500000,
+      "_note": "0% — below entry threshold; refreshes the snapshot only"
+    },
+    {
+      "type": "quote", "event_ts": 1700000060000, "symbol": "NVDA.US",
+      "last_price": 103.5, "prev_close": 100.0, "volume": 700000,
+      "_note": "+3.5% — crosses into band 1: MEDIUM, trigger cross_+3pct"
+    },
+    {
+      "type": "quote", "event_ts": 1700000120000, "symbol": "NVDA.US",
+      "last_price": 104.2, "prev_close": 100.0, "volume": 810000,
+      "_note": "+4.2% — wobble inside band 1: collapsed"
+    },
+    {
+      "type": "quote", "event_ts": 1700000180000, "symbol": "NVDA.US",
+      "last_price": 105.5, "prev_close": 100.0, "volume": 950000,
+      "_note": "+5.5% — band 2 beats the cooldown: HIGH, trigger cross_+5pct"
+    },
+    {
+      "type": "news", "event_ts": 1700000300000, "news_id": "n-001",
+      "title": "Nvidia raises full year revenue guidance",
+      "source": "Reuters", "url": "https://example.com/news/n-001",
+      "related_symbols": ["NVDA.US"],
+      "_note": "MEDIUM — news is never CRITICAL in v0"
+    },
+    {
+      "type": "news", "event_ts": 1700000360000, "news_id": "n-002",
+      "title": "Nvidia raises full-year revenue guidance.",
+      "source": "WireCo", "url": "https://example.com/news/n-002",
+      "related_symbols": ["NVDA.US"],
+      "_note": "re-issued under a new id — collapsed by SimHash near-dedup"
+    },
+    {
+      "type": "news", "event_ts": 1700000420000, "news_id": "n-001",
+      "title": "Nvidia raises full year revenue guidance",
+      "source": "Reuters", "url": "https://example.com/news/n-001",
+      "related_symbols": ["NVDA.US"],
+      "_note": "same news_id again — collapsed by exact dedup"
+    },
+    {
+      "type": "news", "event_ts": 1700000480000, "news_id": "n-004",
+      "title": "Unlisted biotech announces merger",
+      "source": "WireCo", "url": "https://example.com/news/n-004",
+      "related_symbols": ["BIIB.US"],
+      "_note": "outside the universe allowlist — dropped, not counted"
+    },
+    {
+      "type": "quote", "event_ts": 1700000600000, "symbol": "XOM.US",
+      "last_price": 96.5, "prev_close": 100.0, "volume": 220000,
+      "_note": "-3.5% — band 1 in Energy: MEDIUM, trigger cross_-3pct"
+    },
+    {
+      "type": "quote", "event_ts": 1700000720000, "symbol": "XOM.US",
+      "last_price": 99.5, "prev_close": 100.0, "volume": 260000,
+      "_note": "-0.5% — back below entry threshold; resets the current band"
+    },
+    {
+      "type": "quote", "event_ts": 1700000900000, "symbol": "XOM.US",
+      "last_price": 96.4, "prev_close": 100.0, "volume": 300000,
+      "_note": "-3.6% five minutes later — suppressed by the 15-minute cooldown"
+    },
+    {
+      "type": "quote", "event_ts": 1700001800000, "symbol": "AMD.US",
+      "last_price": 108.5, "prev_close": 100.0, "volume": 400000,
+      "_note": "+8.5% — extreme intraday move: CRITICAL"
+    },
+    {
+      "type": "status", "event_ts": 1700001860000, "symbol": "GOOGL.US",
+      "status": "halted",
+      "_note": "halt on a universe symbol: CRITICAL"
+    },
+    {
+      "type": "status", "event_ts": 1700001920000, "status": "closed",
+      "_note": "market-wide status: LOW, empty sector, bypasses sector filters"
+    }
+  ]
+}

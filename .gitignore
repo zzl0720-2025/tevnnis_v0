@@ -1,0 +1,94 @@
+# -----------------------------------------------------------------------
+# Secrets — never commit
+# -----------------------------------------------------------------------
+.env
+
+# -----------------------------------------------------------------------
+# Python
+# -----------------------------------------------------------------------
+__pycache__/
+*.py[cod]
+*.pyo
+.venv/
+.venv*/
+*.egg-info/
+dist/
+.eggs/
+.pytest_cache/
+.ruff_cache/
+
+# -----------------------------------------------------------------------
+# C++ build artefacts
+# -----------------------------------------------------------------------
+build/
+cmake-build-*/
+*.o
+*.a
+*.so
+*.dylib
+CMakeCache.txt
+CMakeFiles/
+CTestTestfile.cmake
+_deps/
+
+# -----------------------------------------------------------------------
+# Generated proto stubs (run scripts/gen_proto.sh to regenerate)
+# -----------------------------------------------------------------------
+core/gen/
+md/gen/
+
+# -----------------------------------------------------------------------
+# IDE / editor
+# -----------------------------------------------------------------------
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+
+# -----------------------------------------------------------------------
+# Private implementation — excluded from the public source distribution
+# -----------------------------------------------------------------------
+# The risk package is kept as one boundary: implementation, public-looking
+# headers, bindings, and tests collectively expose the rule set and precedence.
+/risk/
+
+# Unifier implementations and their executable specifications (tests).
+/md/include/md/data_unifier.hpp
+/md/src/data_unifier.cpp
+/md/tests/data_unifier_test.cpp
+/core/src/tevnnis_core/llm/protocol_unifier.py
+/core/src/tevnnis_core/llm/instruction_unifier.py
+/core/tests/test_protocol_unifier.py
+/core/tests/test_instruction_unifier.py
+
+# Risk-context assembly exposes the private engine's complete input surface.
+/core/src/tevnnis_core/risk_context.py
+/core/tests/test_risk_context.py
+/core/tests/test_risk_engine.py
+
+# Internal design/history documents contain implementation-level detail.
+/docs/DESIGN.md
+/docs/PROGRESS.md
+
+# Operator-specific paper configurations. Keep the generic example public.
+/config/config.paper*.yaml
+
+# Generated live-paper round-trip scenarios (scripts/make_paper_roundtrip.py).
+# A limit price is only valid against the market price it was generated from,
+# so these are run-time artefacts and must never be committed or reused.
+config/scenario.paper_*.json
+
+# The published public snapshot. A run-time artefact derived from a
+# real account: it carries no secrets and no dollar figures by construction
+# (core/src/tevnnis_core/snapshot.py), but it is output, not source.
+# frontend/public_snapshot.demo.js IS committed — it is what makes the
+# dashboard render on a fresh checkout.
+frontend/public_snapshot.js
+frontend/public_snapshot.json
+
+# Local sqlite databases (offline mock runs)
+*.db
+*.sqlite
+*.sqlite3

@@ -1,0 +1,57 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "tevnnis-core"
+version = "0.0.1"
+description = "TEVNNIS orchestration plane — Python component"
+requires-python = ">=3.11"
+dependencies = [
+    "pydantic>=2.0",
+    "sqlalchemy>=2.0",
+    "alembic>=1.13",
+    "grpcio>=1.62",
+    "pyyaml>=6.0",
+    "psycopg2-binary>=2.9",
+    # Longbridge/LongPort OpenAPI SDK for the paper broker behind TradePort.
+    # Ships prebuilt wheels, unlike the optional C++ market-data SDK build, so
+    # this needs no Rust toolchain. Imported lazily: nothing in the mock plane
+    # touches it, so the default `--broker mock` path never loads it.
+    "longport>=4.3.7",
+    # OpenAI SDK for the production LLMProvider implementation.
+    # Imported lazily inside OpenAIProvider._ensure_client, so the default
+    # `--llm mock` path never loads it and every offline test runs without it.
+    "openai>=3.8",   # minimum version covered by the provider tests
+]
+
+[project.scripts]
+tevnnis-core = "tevnnis_core.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tevnnis_core"]
+
+# ---------------------------------------------------------------------------
+# Dev / tooling dependencies (uv: uv sync --group dev)
+# ---------------------------------------------------------------------------
+[dependency-groups]
+dev = [
+    "grpcio-tools>=1.62",
+    "pytest>=8.0",
+    "pytest-asyncio>=0.23",
+    "ruff>=0.4",
+]
+
+# ---------------------------------------------------------------------------
+# Tool configuration
+# ---------------------------------------------------------------------------
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"

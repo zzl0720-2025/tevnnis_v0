@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package tevnnis;
+
+// §4.1 — Event envelope enums
+enum EventType {
+  NEWS       = 0;
+  QUOTE_MOVE = 1;
+  STATUS     = 2;
+}
+
+enum Priority {
+  LOW      = 0;
+  MEDIUM   = 1;
+  HIGH     = 2;
+  CRITICAL = 3;
+}
+
+// §4.2 — Payloads
+
+message NewsPayload {
+  string          news_id         = 1;   // Longbridge id; dedup primary key
+  string          title           = 2;   // truncated to N chars
+  string          source          = 3;
+  string          url             = 4;   // stored for reference; NOT sent to the LLM
+  repeated string related_symbols = 5;
+  // v0: NO article body. Body stays in md/DB, never in the event stream.
+}
+
+message QuotePayload {
+  double last_price    = 1;
+  double prev_close    = 2;
+  double change_pct    = 3;   // computed in C++; the LLM never does arithmetic
+  double intraday_high = 4;
+  double intraday_low  = 5;
+  int64  volume        = 6;
+  string trigger       = 7;   // why it became an event: "cross_+3pct" / "new_intraday_high" / ...
+}
+
+message StatusPayload {
+  enum Status {
+    HALTED      = 0;
+    RESUMED     = 1;
+    PRE_MARKET  = 2;
+    POST_MARKET = 3;
+    CLOSED      = 4;
+  }
+  Status status = 1;
+}
+
+// §4.1 — Event envelope
+message MarketEvent {
+  string    event_id  = 1;   // unique key for dedup + idempotency
+  EventType type      = 2;
+  string    symbol    = 3;   // "AAPL.US"; empty for sector-wide events
+  string    sector    = 4;   // routes to a sector priority queue
+  Priority  priority  = 5;   // initial priority assigned by md rules
+  int64     event_ts  = 6;   // when it happened at source
+  int64     ingest_ts = 7;   // when md processed it (latency/debug)
+
+  oneof payload {            // exactly one, by type
+    NewsPayload   news   = 10;
+    QuotePayload  quote  = 11;
+    StatusPayload status = 12;
+  }
+}

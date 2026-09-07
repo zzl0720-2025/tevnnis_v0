@@ -1,0 +1,67 @@
+# TEVNNIS strategy configuration — complete valid example (§6)
+# Secrets (broker key, LLM key) are NOT here; they come from environment variables.
+
+account:
+  mode: paper              # paper (Longbridge sim) | live
+  managed_capital: 10000   # USD
+  base_currency: USD
+
+# Explicit allowlist grouped by sector — this list IS the filter.
+# The Risk Engine rejects any symbol not present here.
+universe:
+  Semiconductor: [NVDA.US, AMD.US]
+  Energy:        [XOM.US]
+  Web:           [GOOGL.US, META.US]
+  BroadETF:      [SPY.US, QQQ.US, VOO.US]   # curated broad-based ETFs
+
+instruments:
+  allow_common_stock: true
+  allow_etf: true          # v0 allows curated broad ETFs only
+  etf_denylist_patterns: ["2X", "3X", "INVERSE", "SHORT"]   # belt-and-suspenders guard
+
+# VISIBLE to the LLM — shapes how it reasons
+style:
+  risk_appetite: moderate  # conservative | moderate | aggressive
+  holding_bias: long_term
+  notes: "Prefer fundamentals; avoid chasing spikes."
+
+# HARD-ENFORCED in code — the LLM never sees these
+risk_limits:
+  max_position_pct: 0.25           # no single symbol > 25% of managed capital
+  max_sector_pct: 0.50             # no single sector > 50%
+  min_cash_reserve_pct: 0.10       # always keep 10% cash
+  limit_price_max_deviation_pct: 0.03  # limit price may not deviate > 3% from last
+  max_order_notional: 3000         # USD per order
+  max_day_trades_per_week: 3       # PDT awareness
+  no_trade_after_open_minutes: 5   # no trading in the open-volatility window (§11)
+  no_trade_before_close_minutes: 5 # no trading in the close-volatility window (§11)
+
+# HARD-ENFORCED — your bill & fee gates
+budgets:
+  llm_daily_token_budget: 500000
+  llm_daily_call_cap: 50
+  broker_max_trades_per_day: 10
+  broker_max_turnover_per_day: 5000   # USD
+
+# Four knobs from §4.4 — govern how often core wakes (= LLM spend)
+triggers:
+  entry_threshold_pct: 3.0
+  escalation_bands: [3.0, 5.0, 8.0]
+  cooldown_minutes: 15
+  sector_rate_cap_per_hour: 12
+  critical_move_pct: 8.0
+
+cadence:
+  timezone: America/New_York
+  decision_interval_seconds: 300   # 5-minute polling cadence
+  respect_market_hours: true
+  reason_min_priority: HIGH        # cheap gate: only HIGH/CRITICAL wakes the strong model
+
+lifecycle:
+  cancel_open_orders_on_shutdown: true   # graceful shutdown cancels in-flight TIMED orders
+
+# Provider abstraction — swapping models is a config-only change
+llm_routing:
+  cheap:  { provider: openai,    model: gpt-4o-mini }
+  mid:    { provider: anthropic, model: claude-sonnet-4-6 }
+  strong: { provider: anthropic, model: claude-opus-4-8 }

@@ -1,0 +1,67 @@
+# Integration fixture for scripts/run_e2e.sh -- identical to config.example.yaml
+# except `cadence.decision_interval_seconds`. The real tevnnis-core binary
+# (unlike the pytest e2e tests, which inject a no-op `sleep`) really does
+# `await asyncio.sleep(decision_interval_seconds)` between rounds; at the
+# demo's 300s that makes a 2-round --max-rounds run take five real minutes.
+# 2s keeps scripts/run_e2e.sh fast while still exercising the same two rounds
+# (round 1: OK, round 2: HOLD_NO_EVENTS) that core/tests/test_e2e_wired_md.py
+# asserts on sqlite. Do not use this file outside the wired e2e
+# runner -- config.example.yaml stays the one authored operator config (§6).
+
+account:
+  mode: paper
+  managed_capital: 10000
+  base_currency: USD
+
+universe:
+  Semiconductor: [NVDA.US, AMD.US]
+  Energy:        [XOM.US]
+  Web:           [GOOGL.US, META.US]
+  BroadETF:      [SPY.US, QQQ.US, VOO.US]
+
+instruments:
+  allow_common_stock: true
+  allow_etf: true
+  etf_denylist_patterns: ["2X", "3X", "INVERSE", "SHORT"]
+
+style:
+  risk_appetite: moderate
+  holding_bias: long_term
+  notes: "Prefer fundamentals; avoid chasing spikes."
+
+risk_limits:
+  max_position_pct: 0.25
+  max_sector_pct: 0.50
+  min_cash_reserve_pct: 0.10
+  limit_price_max_deviation_pct: 0.03
+  max_order_notional: 3000
+  max_day_trades_per_week: 3
+  no_trade_after_open_minutes: 5
+  no_trade_before_close_minutes: 5
+
+budgets:
+  llm_daily_token_budget: 500000
+  llm_daily_call_cap: 50
+  broker_max_trades_per_day: 10
+  broker_max_turnover_per_day: 5000
+
+triggers:
+  entry_threshold_pct: 3.0
+  escalation_bands: [3.0, 5.0, 8.0]
+  cooldown_minutes: 15
+  sector_rate_cap_per_hour: 12
+  critical_move_pct: 8.0
+
+cadence:
+  timezone: America/New_York
+  decision_interval_seconds: 2     # <-- the one intentional difference from config.example.yaml
+  respect_market_hours: true
+  reason_min_priority: HIGH
+
+lifecycle:
+  cancel_open_orders_on_shutdown: true
+
+llm_routing:
+  cheap:  { provider: openai,    model: gpt-4o-mini }
+  mid:    { provider: anthropic, model: claude-sonnet-4-6 }
+  strong: { provider: anthropic, model: claude-opus-4-8 }

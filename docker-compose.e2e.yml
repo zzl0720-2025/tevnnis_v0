@@ -1,0 +1,24 @@
+# Dedicated Postgres instance for scripts/run_e2e.sh -- a separate
+# container, volume, port and database from docker-compose.yml's `postgres`
+# dev service, so an e2e run can never read or clobber day-to-day dev data.
+# run_e2e.sh always addresses this file with an explicit project name
+# (-p tevnnis-e2e) and `down -v`s it both before AND after every run, so each
+# run starts from a genuinely empty schema -- assert_e2e_db.py asserts EXACT
+# row counts, which only holds if the DB really is empty at the start.
+services:
+  postgres-e2e:
+    image: postgres:16
+    container_name: tevnnis-postgres-e2e
+    environment:
+      POSTGRES_USER: tevnnis_e2e
+      POSTGRES_PASSWORD: tevnnis_e2e_dev
+      POSTGRES_DB: tevnnis_e2e
+    ports:
+      - "5433:5432"
+    volumes:
+      - tevnnis_e2e_pgdata:/var/lib/postgresql/data
+    # No restart policy: this instance is meant to be ephemeral, always
+    # torn down (down -v) at the end of a run, never left running.
+
+volumes:
+  tevnnis_e2e_pgdata:

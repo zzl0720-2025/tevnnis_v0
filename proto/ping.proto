@@ -1,0 +1,18 @@
+// Minimal service used to verify protobuf generation on both language paths.
+// Runtime contracts live in events.proto, md_service.proto, and instruction.proto.
+syntax = "proto3";
+
+package tevnnis;
+
+service Ping {
+  rpc Ping(PingRequest) returns (PingResponse);
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  int64  echo_ts = 2;  // unix milliseconds; md sets this so core can measure latency
+}

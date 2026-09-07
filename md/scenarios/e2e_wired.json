@@ -1,0 +1,17 @@
+{
+  "scenario": "e2e_wired",
+  "description": "Integration fixture for scripts/run_e2e.sh and core/tests/test_e2e_wired_md.py: drives the real tevnnis-md binary (not MockMarketDataSource-through-MockMarketDataClient) over a live gRPC connection into core. One MEDIUM news item and one HIGH quote move. tevnnis-md ingests its whole scenario before it starts serving gRPC (see md/src/main.cpp: source.run(...) completes before builder.BuildAndStart()), so core's first PullDecisionBatch sees both events in one round -- the second round then sees nothing new. Do not add a third event, or change these two, without re-checking that assumption against core/tests/test_e2e_wired_md.py and core/scripts/assert_e2e_db.py, which both assert exactly 2 decisions (one OK, one HOLD_NO_EVENTS).",
+  "events": [
+    {
+      "type": "news", "event_ts": 1700000000000, "news_id": "e2e-n-1",
+      "title": "Analyst raises price target", "source": "wire",
+      "url": "https://example.com/e2e-n-1", "related_symbols": ["GOOGL.US"],
+      "_note": "MEDIUM -- persisted for audit, but alone would not wake the strong model (reason_min_priority=HIGH)"
+    },
+    {
+      "type": "quote", "event_ts": 1700000060000, "symbol": "NVDA.US",
+      "last_price": 105.5, "prev_close": 100.0, "volume": 950000,
+      "_note": "+5.5% on NVDA's first tick (current_band starts at -1) -- crosses both the 3% and 5% escalation bands at once: HIGH. event_id is deterministic: \"quote:NVDA.US:1700000060000\" (see DataUnifier::UnifyQuote in md/src/data_unifier.cpp)"
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "_comment": "DEMO ONLY — the `universe` + `triggers` subset of config/config.example.yaml for standalone tevnnis-md runs. Core owns the authored YAML configuration; this file is not a second source of truth and must not drift into one.",
+  "universe": {
+    "Semiconductor": ["NVDA.US", "AMD.US"],
+    "Energy": ["XOM.US"],
+    "Web": ["GOOGL.US", "META.US"],
+    "BroadETF": ["SPY.US", "QQQ.US", "VOO.US"]
+  },
+  "triggers": {
+    "entry_threshold_pct": 3.0,
+    "escalation_bands": [3.0, 5.0, 8.0],
+    "cooldown_minutes": 15,
+    "sector_rate_cap_per_hour": 12,
+    "critical_move_pct": 8.0
+  },
+  "md": {
+    "news_title_max_chars": 200,
+    "dedup_window_minutes": 60,
+    "simhash_hamming_threshold": 8,
+    "retain_buffer_capacity": 2048,
+    "_news_comment": "Live news poller (--news-source longbridge only). The Longbridge news endpoint takes one symbol per call and has no `since` cursor, and news is exempt from the four §4.4 quote-throttling knobs — so max_age_minutes and max_items_per_symbol are the only bound on news volume.",
+    "news": {
+      "poll_interval_seconds": 300,
+      "min_call_spacing_ms": 250,
+      "call_timeout_seconds": 20,
+      "max_age_minutes": 120,
+      "max_items_per_symbol": 5,
+      "seen_capacity": 4096
+    }
+  }
+}

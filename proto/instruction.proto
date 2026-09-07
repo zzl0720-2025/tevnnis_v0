@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package tevnnis;
+
+// §5 — Trading instruction schema
+
+enum Action {
+  HOLD = 0;
+  BUY  = 1;
+  SELL = 2;
+  // v0: no LLM-initiated CANCEL (handled deterministically by Execution)
+}
+
+enum OrderType {
+  LIMIT = 0;   // v0: limit orders only (control slippage & cost)
+}
+
+enum TIF {
+  DAY   = 0;
+  TIMED = 1;   // TIMED = our own time-in-force window (cancel unfilled on timeout)
+}
+
+// What the LLM emits — NO client_order_id (the LLM never supplies the idempotency key).
+message ProposedInstruction {
+  Action    action        = 1;   // HOLD is first-class and must be logged
+  string    symbol        = 2;
+  OrderType order_type    = 3;   // v0 fixed LIMIT
+  int64     quantity      = 4;   // shares
+  double    limit_price   = 5;
+  int32     valid_seconds = 6;   // our TIF; cancel the unfilled remainder on timeout
+  double    confidence    = 7;   // 0..1
+
+  string          thesis          = 20;  // rationale / reasoning (persisted, not executed)
+  repeated string cited_event_ids = 21;  // which events drove this decision (traceability)
+}
+
+// Canonical, execution-ready. core builds this from a ProposedInstruction by attaching the
+// client_order_id. thesis/cited_event_ids are persisted separately, not carried here.
+message TradingInstruction {
+  Action    action          = 1;
+  string    symbol          = 2;
+  OrderType order_type      = 3;
+  int64     quantity        = 4;
+  double    limit_price     = 5;
+  int32     valid_seconds   = 6;
+  double    confidence      = 7;
+  string    client_order_id = 8;   // idempotency key; assigned by core
+}
+
+message DecisionOutput {
+  repeated ProposedInstruction instructions = 1;  // may hold multiple (sell A, buy B); cap <= 5
+  string                       session_note = 2;  // LLM's overall note for the round; persisted
+}

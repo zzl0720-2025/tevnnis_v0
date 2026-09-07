@@ -1,0 +1,519 @@
+<title>TEVNNIS Cockpit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap">
+<!-- The snapshot, loaded as plain script tags so the page works by
+     double-click with no server: a `<script src>` that 404s fails silently,
+     whereas fetch() of a local file is CORS-blocked under file://.
+     The demo file is committed; the live one is written by tevnnis-core
+     (tevnnis_core/snapshot.py) into this directory and, when present,
+     overwrites the global. -->
+<script src="public_snapshot.demo.js"></script>
+<script src="public_snapshot.js"></script>
+
+<style>
+  :root{
+    color-scheme: dark;
+    /* Australian Open hard court: vivid blue surface, crisp white lines, green ball */
+    --ground:#1A5FAC;            /* surround / run-off — brighter */
+    --panel:#0F407E;             /* content court — deeper */
+    --panel-hi:#164E96;
+    --recess:#0C356B;
+    --courtline:rgba(255,255,255,.62);  /* the white lines that divide the court */
+    --edge:rgba(255,255,255,.78);        /* bright outer boundary */
+    --hair:rgba(255,255,255,.16);        /* faint inner rule */
+    --ink:#F4F8FD; --muted:#B0C7E6; --faint:#7897C0;
+    --accent:#C9F03A; --accent-dim:rgba(201,240,58,.16); --accent-line:rgba(201,240,58,.5);
+    --down:#FF8468;
+    --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+    --sans:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--sans);
+    font-size:14px;line-height:1.55;-webkit-font-smoothing:antialiased;
+    background-image:radial-gradient(1000px 520px at 90% -10%, rgba(201,240,58,.07), transparent 60%);}
+  .tnum{font-variant-numeric:tabular-nums}
+  .up{color:var(--accent)} .dn{color:var(--down)}
+  .lbl{font-size:11.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink);font-weight:600}
+  .sub{font-size:11px;color:var(--muted);font-weight:400}
+  .shell{max-width:1280px;margin:0 auto;padding:18px 20px 26px}
+
+  /* ---- top scoreboard ---- */
+  .top{display:flex;align-items:center;gap:16px;padding:13px 18px;
+    border:2px solid var(--edge);border-radius:16px;background:var(--panel)}
+  .brand{display:flex;align-items:center;gap:13px}
+  .brand .name{font-weight:700;letter-spacing:.13em;font-size:17px}
+  .brand .name b{color:var(--accent)}
+  .brand .full{font-size:9px;color:var(--faint);letter-spacing:.03em;margin-top:3px;max-width:380px;line-height:1.35}
+  .brand .full b{color:var(--muted);font-weight:700}
+  .top .spacer{flex:1}
+  .live{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--muted);font-weight:500;letter-spacing:.04em}
+  .live .d{width:8px;height:8px;border-radius:50%;background:var(--accent);box-shadow:0 0 0 3px var(--accent-dim)}
+
+  /* ---- the court: one big rectangle, white lines divide the zones ---- */
+  .court{margin-top:14px;border:2px solid var(--edge);border-radius:16px;overflow:hidden;
+    background:var(--courtline);display:grid;grid-template-columns:1.55fr 1fr;gap:2px}
+  .colL{display:grid;grid-template-rows:auto auto auto;gap:2px;background:var(--courtline);min-width:0}
+  .colR{display:grid;grid-template-rows:1fr 1fr;gap:2px;background:var(--courtline);min-width:0;min-height:0}
+  @media(max-width:960px){
+    .court{grid-template-columns:1fr}
+    .colR{grid-template-rows:auto auto}
+  }
+  .zone{background:var(--panel);display:flex;flex-direction:column;min-height:0;min-width:0}
+  .zhd{display:flex;align-items:baseline;gap:10px;padding:14px 18px 0}
+  .zhd .spacer{flex:1}
+  .scroll{overflow:auto;min-height:0}
+  .scroll::-webkit-scrollbar{width:8px}
+  .scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,.18);border-radius:8px}
+  .demo{font-family:var(--mono);font-size:9px;letter-spacing:.12em;color:var(--faint);border:1px solid var(--hair);border-radius:5px;padding:3px 7px}
+  /* Honest empty states. The page never invents data to fill a zone. */
+  .empty{color:var(--faint);font-size:12px;font-style:italic;padding:14px 18px;display:block;text-align:center}
+  [hidden]{display:none!important}
+
+  /* ---- performance ---- */
+  .perf-top{display:flex;align-items:flex-end;gap:28px;padding:12px 18px 4px;flex-wrap:wrap}
+  .idx .n{font-family:var(--mono);font-size:40px;font-weight:600;line-height:1;letter-spacing:-.02em}
+  .idx .u{font-size:11px;color:var(--muted);margin-top:8px}
+  .deltas{display:flex;gap:24px;padding-bottom:4px}
+  .delta .k{font-size:9px;letter-spacing:.12em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .delta .v{font-family:var(--mono);font-size:17px;font-weight:600;margin-top:5px}
+  .ranges{display:flex;gap:4px;margin-left:auto;padding-bottom:5px}
+  .ranges button{font-family:var(--mono);font-size:11px;color:var(--muted);background:transparent;border:1px solid transparent;border-radius:7px;padding:5px 11px;cursor:pointer}
+  .ranges button:hover{color:var(--ink);background:var(--panel-hi)}
+  .ranges button[aria-pressed="true"]{color:var(--accent);border-color:var(--accent-line);background:var(--accent-dim)}
+  .chart-wrap{position:relative;padding:6px 10px 12px}
+  svg{display:block;width:100%;height:auto}
+  .tip{position:absolute;pointer-events:none;opacity:0;transition:opacity .08s;background:var(--recess);border:1px solid var(--edge);border-radius:8px;padding:7px 10px;font-family:var(--mono);font-size:11.5px;white-space:nowrap;transform:translate(-50%,-120%);z-index:5}
+  .tip .t-d{color:var(--faint);font-size:10px} .tip .t-v{color:var(--accent);font-weight:600}
+
+  /* ---- positions ---- */
+  table{width:100%;border-collapse:collapse;margin-top:10px}
+  thead th{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700;text-align:right;padding:9px 18px}
+  thead th:first-child{text-align:left}
+  tbody td{padding:12px 18px;border-top:1px solid var(--hair);font-family:var(--mono);font-size:13px;text-align:right}
+  tbody td:first-child{text-align:left}
+  tbody tr:hover{background:var(--panel-hi)}
+  .tk{font-weight:600;color:var(--ink);letter-spacing:.02em} .wt{color:var(--muted)}
+  .spark{display:inline-block;vertical-align:middle}
+
+  /* ---- telemetry ---- */
+  .tele{display:grid;grid-template-columns:repeat(4,1fr);margin-top:12px}
+  @media(max-width:520px){.tele{grid-template-columns:repeat(2,1fr)}}
+  .cell{padding:14px 18px;border-left:1px solid var(--hair)} .cell:first-child{border-left:none}
+  .cell .k{font-size:9px;letter-spacing:.11em;text-transform:uppercase;color:var(--faint);font-weight:700}
+  .cell .v{font-family:var(--mono);font-size:23px;font-weight:600;margin-top:9px;letter-spacing:-.01em}
+  .cell .s{font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:5px}
+
+  /* ---- news ---- */
+  .nrow{display:grid;grid-template-columns:44px 54px 1fr;gap:12px;align-items:center;padding:12px 18px;border-top:1px solid var(--hair)}
+  .nrow:first-child{border-top:none}
+  .nrow:hover{background:var(--panel-hi)}
+  .nrow .nt{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+  .nrow .ns{font-family:var(--mono);font-size:10px;font-weight:600;color:var(--accent);border:1px solid var(--accent-line);border-radius:5px;padding:2px 0;text-align:center}
+  .nrow .nh{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    text-decoration:none;display:block;transition:color .1s}
+  .nrow .nh:hover,.nrow .nh:focus-visible{color:var(--accent);text-decoration:underline;text-underline-offset:2px;outline:none}
+
+  /* ---- ai reasoning ---- */
+  .now{border:1px solid var(--hair);border-left:2.5px solid var(--accent);border-radius:10px;background:var(--recess);padding:13px 15px;margin:10px 18px 4px}
+  .now .meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px}
+  .chip{font-family:var(--mono);font-size:10px;color:var(--muted);border:1px solid var(--hair);border-radius:6px;padding:2px 7px;font-weight:500}
+  .chip.act{color:var(--accent);border-color:var(--accent-line)}
+  .chip.rok{color:var(--accent)} .chip.rno{color:var(--down);border-color:rgba(255,132,104,.45)}
+  .now .thesis{font-size:14.5px;line-height:1.55;color:#EAF1FB}
+  .now .sym{font-family:var(--mono);font-weight:600;color:#fff}
+  .log .row{display:grid;grid-template-columns:48px 52px 1fr auto;gap:10px;align-items:center;padding:11px 18px;border-top:1px solid var(--hair)}
+  .log .row:hover{background:var(--panel-hi)}
+  .log .row .tm{font-family:var(--mono);font-size:11px;color:var(--faint)}
+  .log .row .ac{font-family:var(--mono);font-size:11.5px;font-weight:600}
+  .log .row .ac.hold{color:var(--muted)} .log .row .ac.buy{color:var(--accent)} .log .row .ac.sell{color:var(--down)}
+  .log .row .ds{font-size:12.5px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .log .row .rk{font-family:var(--mono);font-size:10.5px;color:var(--faint)}
+
+  /* ---- footer band ---- */
+  .band{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:14px;padding:14px 18px;border:2px solid var(--edge);border-radius:16px;background:var(--panel)}
+  .uni{display:flex;gap:6px;flex-wrap:wrap}
+  .uni .s{font-family:var(--mono);font-size:11px;color:var(--muted);border:1px solid var(--hair);border-radius:5px;padding:3px 8px;font-weight:500}
+  .uni .s.held{color:var(--accent);border-color:var(--accent-line)}
+  .band .spacer{flex:1}
+  .persona{display:flex;gap:6px}
+  .persona .p{font-size:11px;color:var(--muted);background:var(--recess);border:1px solid var(--hair);border-radius:20px;padding:3px 11px}
+  .cost{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+  .cost b{color:var(--accent);font-weight:600}
+
+  @media(prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+<div class="shell">
+
+  <div class="top">
+    <div class="brand">
+      <svg width="44" height="44" viewBox="0 0 120 120" aria-hidden="true">
+        <defs><clipPath id="ballclip"><circle cx="60" cy="60" r="54"/></clipPath></defs>
+        <circle cx="60" cy="60" r="54" fill="#C9F03A"/>
+        <g clip-path="url(#ballclip)" fill="none" stroke="#FFFFFF" stroke-width="6" stroke-linejoin="round" stroke-linecap="round">
+          <path d="M6 56 L18 51 L25 57 L35 45 L42 50 L51 39 L58 44 L68 33 L75 37 L86 28 L94 32 L116 21"/>
+          <path d="M22 104 L34 97 L40 102 L51 90 L58 94 L68 84 L76 88 L87 80 L96 84 L116 75"/>
+        </g>
+      </svg>
+      <div>
+        <div class="name">TE<b>V</b>NNIS</div>
+        <div class="full"><b>T</b>rading <b>E</b>ngine <b>V</b>0 <b>N</b>ascent, <b>N</b>ominal <b>I</b>ntelligence <b>S</b>ystem</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <div class="live" id="status" title="">
+      <span class="d" id="statusDot"></span><span id="statusText">NO SNAPSHOT</span>
+    </div>
+  </div>
+
+  <!-- THE COURT -->
+  <div class="court">
+
+    <div class="colL">
+      <!-- Performance -->
+      <div class="zone">
+        <div class="zhd"><span class="lbl">Performance</span><span class="sub">indexed to 100</span><span class="spacer"></span><span class="demo" id="demoBadge" hidden>DEMO DATA</span></div>
+        <div class="perf-top">
+          <div class="idx"><span class="n tnum" id="idxNow">—</span><span class="u">start 100.00</span></div>
+          <div class="deltas">
+            <div class="delta"><div class="k">Cumulative</div><div class="v tnum" id="cumPct">—</div></div>
+            <div class="delta"><div class="k">Today</div><div class="v tnum" id="todayPct">—</div></div>
+          </div>
+          <div class="ranges" role="group" aria-label="time range">
+            <button data-r="1D">1D</button><button data-r="1W">1W</button>
+            <button data-r="1M" aria-pressed="true">1M</button><button data-r="ALL">ALL</button>
+          </div>
+        </div>
+        <div class="chart-wrap">
+          <svg id="chart" viewBox="0 0 720 226" preserveAspectRatio="none" role="img" aria-label="Indexed equity curve"></svg>
+          <div class="empty" id="chartEmpty" hidden>Not enough history for this range yet.</div>
+          <div class="tip" id="tip"><div class="t-d" id="tipD"></div><div class="t-v tnum" id="tipV"></div></div>
+        </div>
+      </div>
+
+      <!-- Positions -->
+      <div class="zone">
+        <div class="zhd"><span class="lbl">Positions</span><span class="sub">weight and live price</span></div>
+        <table>
+          <thead><tr><th>Instrument</th><th>Weight</th><th>Last</th><th>Today</th><th>Trend</th></tr></thead>
+          <tbody id="posBody"></tbody>
+        </table>
+      </div>
+
+      <!-- Telemetry -->
+      <div class="zone">
+        <div class="zhd"><span class="lbl">Telemetry</span><span class="sub">today</span></div>
+        <div class="tele">
+          <div class="cell"><div class="k">Events seen</div><div class="v tnum" id="tEvents">—</div><div class="s" id="tEventsSub">—</div></div>
+          <div class="cell"><div class="k">Decisions</div><div class="v tnum" id="tDecisions">—</div><div class="s" id="tDecisionsSub">—</div></div>
+          <div class="cell"><div class="k">Risk checks</div><div class="v tnum" id="tRisk">—</div><div class="s" id="tRiskSub">—</div></div>
+          <div class="cell"><div class="k">Win rate</div><div class="v tnum" id="tWin">—</div><div class="s" id="tWinSub">—</div></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="colR">
+      <!-- News (top half) -->
+      <div class="zone">
+        <div class="zhd"><span class="lbl">Market News</span><span class="spacer"></span>
+          <span class="live"><span class="d" id="newsDot"></span><span id="newsFresh">—</span></span>
+        </div>
+        <div class="scroll" id="newsBody" style="margin-top:8px"></div>
+      </div>
+
+      <!-- AI reasoning (bottom half) -->
+      <div class="zone">
+        <div class="zhd"><span class="lbl">AI Reasoning</span><span class="sub">latest and recent</span></div>
+        <div class="now" id="now"></div>
+        <div class="scroll log" id="log"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="band">
+    <span class="lbl">Watching</span>
+    <div class="uni" id="universe"></div>
+    <div class="spacer"></div>
+    <div class="persona" id="persona"></div>
+    <div class="cost" id="cost">—</div>
+  </div>
+
+</div>
+<script>
+/* TEVNNIS dashboard — read-only renderer for the sanitized public snapshot.
+ *
+ * This file reads exactly ONE thing: window.__TEVNNIS_SNAPSHOT__, set by the
+ * two script tags in the head. It imports nothing from core, holds no
+ * credentials, makes no network request of its own, and has no write path.
+ * Everything it can possibly display is whatever build_public_snapshot()
+ * decided to publish (core/src/tevnnis_core/snapshot.py) — which is the whole
+ * point of the isolation in §14.
+ *
+ * If you are adding a field here, it has to exist in the snapshot's allow-list
+ * first. There is deliberately no fallback that reaches for anything else.
+ */
+(function(){
+  "use strict";
+
+  var SNAP = window.__TEVNNIS_SNAPSHOT__ || null;
+  var STALE_AFTER_SECONDS = 900;   // mirrors public_snapshot.stale_after_seconds
+
+  // ---- helpers -------------------------------------------------------------
+  function $(id){return document.getElementById(id);}
+  function esc(s){return String(s==null?"":s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+  function num(v,dp){return (v==null||isNaN(v))?null:Number(v).toFixed(dp==null?2:dp);}
+  function pct(v){var n=num(v);return n==null?"—":((v>=0?"+":"")+n+"%");}
+  function signClass(v){return v==null?"":(v>=0?"up":"dn");}
+
+  function ago(seconds){
+    if(seconds<60) return Math.max(0,Math.round(seconds))+"s ago";
+    if(seconds<3600) return Math.round(seconds/60)+"m ago";
+    if(seconds<86400) return Math.round(seconds/3600)+"h ago";
+    return Math.round(seconds/86400)+"d ago";
+  }
+
+  // ---- status: DEMO / LIVE / STALE / STOPPED -------------------------------
+  //
+  // Driven entirely off the snapshot, so the indicator can never claim the
+  // system is healthy when it is not there. The old always-green
+  // "SYSTEMS NOMINAL" pill asserted something it had no way to know.
+  function renderStatus(){
+    var dot=$("statusDot"), text=$("statusText"), badge=$("demoBadge"),
+        wrap=$("status"), newsDot=$("newsDot"), newsFresh=$("newsFresh");
+
+    if(!SNAP){
+      badge.hidden=false; badge.textContent="NO DATA";
+      dot.style.background="var(--faint)"; dot.style.boxShadow="none";
+      text.textContent="NO SNAPSHOT";
+      wrap.title="tevnnis-core has not published a snapshot to this directory.";
+      newsDot.style.background="var(--faint)"; newsDot.style.boxShadow="none";
+      newsFresh.textContent="—";
+      return;
+    }
+
+    var age=(Date.now()-Date.parse(SNAP.generated_at))/1000;
+    var stale=age>STALE_AFTER_SECONDS;
+    var stopped=SNAP.status!=="running";
+    var label, colour;
+
+    if(SNAP.demo){
+      badge.hidden=false; badge.textContent="DEMO DATA";
+      label="DEMO"; colour="var(--faint)";
+      wrap.title="Committed sample data. Run tevnnis-core to publish a real snapshot.";
+    }else{
+      badge.hidden=true;
+      if(stopped){ label="STOPPED"; colour="var(--muted)"; }
+      else if(stale){ badge.hidden=false; badge.textContent="STALE";
+                      label="STALE"; colour="var(--down)"; }
+      else { label="LIVE"; colour="var(--accent)"; }
+      wrap.title="Snapshot generated at "+SNAP.generated_at;
+    }
+
+    dot.style.background=colour;
+    dot.style.boxShadow=(colour==="var(--accent)")?"0 0 0 3px var(--accent-dim)":"none";
+    text.textContent=label+" · "+(SNAP.demo?"sample":ago(age));
+    newsDot.style.background=colour;
+    newsDot.style.boxShadow=dot.style.boxShadow;
+    newsFresh.textContent=SNAP.demo?"DEMO":ago(age);
+  }
+
+  // ---- performance ---------------------------------------------------------
+  var svg=$("chart"), tip=$("tip"), tipD=$("tipD"), tipV=$("tipV"), chartEmpty=$("chartEmpty");
+  var W=720,H=226,PT=16,PB=22,PL=10,PR=52;
+  var LABELS={"1D":"today","1W":"7 days","1M":"30 days","ALL":"since inception"};
+  var curRange="1M", curData=[], hoverX=null;
+
+  function bounds(d){var mn=Math.min.apply(null,d),mx=Math.max.apply(null,d);
+    var pad=(mx-mn)*0.35||0.5;return[mn-pad,mx+pad];}
+  function xAt(i,n){return PL+(W-PL-PR)*(n<2?0:(i/(n-1)));}
+  function yAt(v,lo,hi){return PT+(H-PT-PB)*(1-(v-lo)/(hi-lo));}
+
+  function draw(){
+    var d=curData,n=d.length;
+    // An honest empty state. The page never generates points it does not have
+    // — the previous mock filled this chart from a seeded PRNG.
+    if(n<2){ svg.innerHTML=""; svg.style.display="none"; chartEmpty.hidden=false;
+             tip.style.opacity=0; return; }
+    svg.style.display=""; chartEmpty.hidden=true;
+
+    var b=bounds(d),lo=b[0],hi=b[1];
+    var pts=d.map(function(v,i){return[xAt(i,n),yAt(v,lo,hi)];});
+    var line=pts.map(function(p,i){return(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    var area=line+' L '+pts[n-1][0].toFixed(1)+' '+(H-PB)+' L '+pts[0][0].toFixed(1)+' '+(H-PB)+' Z';
+    var yBase=yAt(100,lo,hi),g='';
+    for(var t=0;t<=4;t++){var val=lo+(hi-lo)*t/4,y=yAt(val,lo,hi);
+      g+='<line x1="'+PL+'" y1="'+y.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+y.toFixed(1)+'" stroke="rgba(255,255,255,.09)" stroke-width="1"/>';
+      g+='<text x="'+(W-PR+8)+'" y="'+(y+3.5).toFixed(1)+'" fill="#7897C0" font-family="JetBrains Mono, monospace" font-size="10">'+val.toFixed(2)+'</text>';}
+    g+='<line x1="'+PL+'" y1="'+yBase.toFixed(1)+'" x2="'+(W-PR)+'" y2="'+yBase.toFixed(1)+'" stroke="rgba(255,255,255,.4)" stroke-width="1" stroke-dasharray="2 5"/>';
+    g+='<defs><linearGradient id="fill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C9F03A" stop-opacity="0.24"/><stop offset="1" stop-color="#C9F03A" stop-opacity="0"/></linearGradient></defs>';
+    g+='<path d="'+area+'" fill="url(#fill)"/>';
+    g+='<path d="'+line+'" fill="none" stroke="#C9F03A" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>';
+    var e=pts[n-1];
+    g+='<circle cx="'+e[0].toFixed(1)+'" cy="'+e[1].toFixed(1)+'" r="6" fill="#C9F03A" opacity="0.22"/>';
+    g+='<circle cx="'+e[0].toFixed(1)+'" cy="'+e[1].toFixed(1)+'" r="3" fill="#C9F03A" stroke="#0F407E" stroke-width="1.5"/>';
+    if(hoverX!==null){
+      var i=Math.max(0,Math.min(n-1,Math.round((hoverX-PL)/((W-PL-PR)/(n-1)))));var hp=pts[i];
+      g+='<line x1="'+hp[0].toFixed(1)+'" y1="'+PT+'" x2="'+hp[0].toFixed(1)+'" y2="'+(H-PB)+'" stroke="rgba(255,255,255,.4)" stroke-width="1"/>';
+      g+='<circle cx="'+hp[0].toFixed(1)+'" cy="'+hp[1].toFixed(1)+'" r="4" fill="#0F407E" stroke="#C9F03A" stroke-width="2"/>';
+      var rect=svg.getBoundingClientRect();
+      tip.style.left=(hp[0]/W*rect.width)+'px';tip.style.top=(hp[1]/H*rect.height)+'px';tip.style.opacity=1;
+      // The series carries index points only — no per-point timestamps, because
+      // publishing them would be new keys for presentation alone. So the
+      // tooltip names the range and the position within it, not a date.
+      var change=(d[i]-100).toFixed(2);
+      tipD.textContent=LABELS[curRange]+' · point '+(i+1)+'/'+n;
+      tipV.textContent=d[i].toFixed(2)+'  ('+(change>=0?'+':'')+change+'%)';
+    }else{tip.style.opacity=0;}
+    svg.innerHTML=g;
+  }
+
+  function renderPerformance(){
+    var perf=SNAP&&SNAP.performance;
+    if(!perf){curData=[];draw();return;}
+    $("idxNow").textContent=num(perf.index_current);
+    var cum=$("cumPct"); cum.textContent=pct(perf.cumulative_pct);
+    cum.className="v tnum "+signClass(perf.cumulative_pct);
+    var tod=$("todayPct"); tod.textContent=pct(perf.today_pct);
+    tod.className="v tnum "+signClass(perf.today_pct);
+    curData=(perf.series&&perf.series[curRange])||[];
+    draw();
+  }
+
+  svg.addEventListener('mousemove',function(ev){
+    var rect=svg.getBoundingClientRect();hoverX=(ev.clientX-rect.left)/rect.width*W;draw();});
+  svg.addEventListener('mouseleave',function(){hoverX=null;draw();});
+  document.querySelectorAll('.ranges button').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      document.querySelectorAll('.ranges button').forEach(function(b){b.removeAttribute('aria-pressed');});
+      btn.setAttribute('aria-pressed','true');
+      curRange=btn.dataset.r;
+      curData=(SNAP&&SNAP.performance&&SNAP.performance.series[curRange])||[];
+      hoverX=null;draw();});});
+
+  // ---- positions -----------------------------------------------------------
+  function sparkline(arr,up){
+    var w=64,h=20,mn=Math.min.apply(null,arr),mx=Math.max.apply(null,arr),
+        pad=(mx-mn)*0.2||1,lo=mn-pad,hi=mx+pad;
+    var pts=arr.map(function(v,i){return[i/(arr.length-1)*w,h-(v-lo)/(hi-lo)*h];});
+    var d=pts.map(function(p,i){return(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1);}).join(' ');
+    var col=up?'#C9F03A':'#FF8468';
+    return '<svg class="spark" width="'+w+'" height="'+h+'" viewBox="0 0 '+w+' '+h+'">'+
+      '<path d="'+d+'" fill="none" stroke="'+col+'" stroke-width="1.5" stroke-linejoin="round"/>'+
+      '<circle cx="'+pts[pts.length-1][0].toFixed(1)+'" cy="'+pts[pts.length-1][1].toFixed(1)+'" r="2" fill="'+col+'"/></svg>';
+  }
+
+  function renderPositions(){
+    var rows=(SNAP&&SNAP.positions)||[];
+    if(!rows.length){
+      $("posBody").innerHTML='<tr><td colspan="5" class="empty">No open positions.</td></tr>';
+      return;
+    }
+    $("posBody").innerHTML=rows.map(function(p){
+      var up=p.today_pct==null?true:p.today_pct>=0;
+      // A single price sample is not a trend; the snapshot sends [] and the
+      // cell says so rather than drawing an invented line.
+      var trend=(p.trend&&p.trend.length>=2)?sparkline(p.trend,up):'<span class="empty">—</span>';
+      return '<tr><td><span class="tk">'+esc(p.symbol)+'</span></td>'+
+        '<td class="wt">'+(p.weight_pct==null?'—':num(p.weight_pct,1)+'%')+'</td>'+
+        '<td>'+(p.last==null?'—':num(p.last))+'</td>'+
+        '<td class="'+signClass(p.today_pct)+'">'+pct(p.today_pct)+'</td>'+
+        '<td>'+trend+'</td></tr>';}).join('');
+  }
+
+  // ---- telemetry -----------------------------------------------------------
+  function renderTelemetry(){
+    var t=(SNAP&&SNAP.telemetry)||null;
+    if(!t)return;
+    $("tEvents").textContent=t.events_seen.toLocaleString();
+    $("tEventsSub").textContent=t.events_acted+" acted on";
+    $("tDecisions").textContent=t.decisions_total.toLocaleString();
+    $("tDecisionsSub").textContent=t.decisions_hold+" hold, "+t.decisions_act+" act";
+    $("tRisk").textContent=t.risk_checks.toLocaleString();
+    $("tRiskSub").innerHTML='<span class="up">'+t.risk_cleared+' cleared</span> '+
+      '<span class="dn">'+t.risk_blocked+' blocked</span>';
+    $("tWin").textContent=(t.win_rate==null)?"—":Math.round(t.win_rate*100)+"%";
+    $("tWinSub").textContent=t.positions_open+" open";
+  }
+
+  // ---- news ----------------------------------------------------------------
+  function renderNews(){
+    var rows=(SNAP&&SNAP.news)||[];
+    if(!rows.length){
+      $("newsBody").innerHTML='<div class="nrow"><span class="empty">No news yet.</span></div>';
+      return;
+    }
+    $("newsBody").innerHTML=rows.map(function(n){
+      // url is null whenever the sanitizer could not make it safe to publish
+      // (not https, an unexpected host when one is configured, a malformed
+      // value). Such a row renders as plain text, never as a dead link.
+      var head=n.url
+        ? '<a class="nh" href="'+esc(n.url)+'" target="_blank" rel="noopener noreferrer" title="'+esc(n.headline)+'">'+esc(n.headline)+'</a>'
+        : '<span class="nh" title="'+esc(n.headline)+'">'+esc(n.headline)+'</span>';
+      return '<div class="nrow"><span class="nt">'+esc(n.time)+'</span>'+
+        '<span class="ns">'+esc((n.symbol||"").split(".")[0])+'</span>'+head+'</div>';}).join('');
+  }
+
+  // ---- ai reasoning --------------------------------------------------------
+  var RISK_CHIP={cleared:['rok','RISK ✓ cleared'],blocked:['rno','RISK ✕ blocked'],
+                 none:['','RISK — not checked']};
+
+  function renderReasoning(){
+    var r=(SNAP&&SNAP.reasoning)||{latest:null,recent:[]};
+
+    if(!r.latest){
+      $("now").innerHTML='<div class="thesis empty">No decision recorded yet.</div>';
+    }else{
+      var chip=RISK_CHIP[r.latest.risk]||RISK_CHIP.none;
+      var action=esc(r.latest.action)+(r.latest.symbol?" "+esc(r.latest.symbol.split(".")[0]):"");
+      $("now").innerHTML=
+        '<div class="meta">'+
+          '<span class="chip">'+esc((r.latest.ts||"").replace("T"," ").replace("Z","Z"))+'</span>'+
+          '<span class="chip act">'+action+'</span>'+
+          (r.latest.model?'<span class="chip">'+esc(r.latest.model)+'</span>':'')+
+          '<span class="chip '+chip[0]+'">'+chip[1]+'</span>'+
+        '</div>'+
+        '<div class="thesis">'+esc(r.latest.thesis||"(no thesis recorded)")+'</div>';
+    }
+
+    var mark={cleared:'✓',blocked:'✕',none:'—'};
+    $("log").innerHTML=(r.recent||[]).map(function(e){
+      var cls=e.action==='BUY'?'buy':(e.action==='SELL'?'sell':'hold');
+      return '<div class="row"><span class="tm">'+esc(e.time)+'</span>'+
+        '<span class="ac '+cls+'">'+esc(e.action)+'</span>'+
+        '<span class="ds" title="'+esc(e.thesis)+'">'+esc(e.thesis)+'</span>'+
+        '<span class="rk">RISK '+(mark[e.risk]||'—')+'</span></div>';}).join('');
+  }
+
+  // ---- footer band ---------------------------------------------------------
+  function renderFooter(){
+    var f=(SNAP&&SNAP.footer)||null;
+    if(!f)return;
+    var held={};(f.held||[]).forEach(function(s){held[s]=true;});
+    $("universe").innerHTML=(f.universe||[]).map(function(s){
+      return '<span class="s'+(held[s]?' held':'')+'">'+esc(s.split(".")[0])+'</span>';}).join('');
+    $("persona").innerHTML=(f.persona||[]).map(function(label){
+      return '<span class="p">'+esc(label)+'</span>';}).join('');
+    // The one dollar figure in the whole snapshot. Null when the configured
+    // LLM route carries no pricing — an em-dash, not a confident $0.00.
+    $("cost").innerHTML=(f.ai_cost_today==null)
+      ? 'AI cost today <b>—</b>'+(f.model?' on '+esc(f.model):'')
+      : 'AI cost today <b>$'+Number(f.ai_cost_today).toFixed(2)+'</b>'+
+        (f.model?' on '+esc(f.model):'');
+  }
+
+  // ---- go ------------------------------------------------------------------
+  renderStatus();
+  renderPerformance();
+  renderPositions();
+  renderTelemetry();
+  renderNews();
+  renderReasoning();
+  renderFooter();
+
+  // Keep the freshness readout honest while the tab sits open. Purely local:
+  // it re-reads the snapshot already in memory and fetches nothing.
+  setInterval(renderStatus, 15000);
+})();
+</script>
