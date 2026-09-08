@@ -1,6 +1,10 @@
 # TEVNNIS v0
 
+**Live demo:** [tevnnis.com](https://tevnnis.com)
+
 TEVNNIS stands for **Trading Engine V0 Nascent, Nominal Intelligence System**.
+The two N-adjectives are intentionally modest in v0; later versions are expected to earn stronger
+adjectives. Why TEVNNIS? Perhaps because its author happens to like tennis.
 
 It is a local-first, low-frequency trading-agent runtime for US-listed equities. The project
 combines a C++ market-data plane and deterministic safety boundary with a Python orchestration
