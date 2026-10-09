@@ -47,28 +47,7 @@ md/gen/
 .DS_Store
 
 
-# -----------------------------------------------------------------------
-# Private implementation — excluded from the public source distribution
-# -----------------------------------------------------------------------
-# The risk package is kept as one boundary: implementation, public-looking
-# headers, bindings, and tests collectively expose the rule set and precedence.
-/risk/
-
-# Unifier implementations and their executable specifications (tests).
-/md/include/md/data_unifier.hpp
-/md/src/data_unifier.cpp
-/md/tests/data_unifier_test.cpp
-/core/src/tevnnis_core/llm/protocol_unifier.py
-/core/src/tevnnis_core/llm/instruction_unifier.py
-/core/tests/test_protocol_unifier.py
-/core/tests/test_instruction_unifier.py
-
-# Risk-context assembly exposes the private engine's complete input surface.
-/core/src/tevnnis_core/risk_context.py
-/core/tests/test_risk_context.py
-/core/tests/test_risk_engine.py
-
-# Internal design/history documents contain implementation-level detail.
+# Private design notes and development history.
 /docs/DESIGN.md
 /docs/PROGRESS.md
 

@@ -17,14 +17,13 @@ reasoning and deterministic execution controls.
 
 ## Source availability
 
-This repository is the public v0 codebase, not a complete source distribution. The risk engine,
-risk-context assembly, unifier implementations, their executable specifications, and internal
-design records are maintained privately. Their interfaces and system boundaries are documented
-here, but the private rule set, precedence, strategy parameters, and transformation logic are not
-published.
+This repository includes the v0 runtime source: the C++ market-data and risk modules, Python
+orchestration, data and instruction unifiers, cross-language bindings, and their tests. The build
+and offline walkthrough below use mock adapters and do not require broker or model credentials.
 
-As a result, a public checkout can be inspected and used as an architectural reference, but it
-cannot build the complete trading runtime without the private components.
+Operator-specific configurations, credentials, account data, generated snapshots, and internal
+development records are not included. The deployed dashboard may run a newer revision than this
+v0 reference implementation.
 
 ## System architecture
 
@@ -64,9 +63,8 @@ for later inspection.
   model providers.
 - Structured model output, provider usage accounting, configurable call/token budgets, and a
   fail-closed HOLD path.
-- In-process C++ risk evaluation exposed through pybind11. Internal rule composition is kept out
-  of this overview; externally, the contract is a deterministic allow/reject result with an
-  auditable reason identifier.
+- In-process C++ risk evaluation exposed through pybind11, with ordered checks, provisional batch
+  state, and deterministic allow/reject results with auditable reason identifiers.
 - Longbridge paper-account execution adapter with startup reconciliation, idempotent client order
   identifiers, timed limit-order handling, fill tracking, and graceful shutdown.
 - SQLAlchemy persistence with Alembic migrations; PostgreSQL for the full local stack and SQLite
@@ -85,12 +83,11 @@ lifecycle. It is not an HFT engine, portfolio backtester, or multi-user trading 
 .
 ├── proto/       protobuf contracts shared by md and core
 ├── md/          C++ market-data plane, adapters, tools, and tests
-├── risk/        private C++ risk library and pybind11 module (not published)
+├── risk/        C++ risk library, pybind11 module, and tests
 ├── core/        Python orchestration, persistence, adapters, and tests
-├── config/      example, integration, and paper-mode configuration
+├── config/      example configuration and integration-test scenarios
 ├── frontend/    static read-only dashboard and committed demo snapshot
-├── scripts/     protobuf, database, and end-to-end helpers
-└── docs/        internal design and implementation records (not published)
+└── scripts/     protobuf, database, and end-to-end helpers
 ```
 
 Generated protobuf bindings, local databases, build output, caches, `.env`, and published live
@@ -116,11 +113,10 @@ Install `uv` using its official installer or package manager. CMake fetches Catc
 `nlohmann_json`, and pybind11 during configuration, so the first configure requires network
 access.
 
-## Build the complete private checkout
+## Build from source
 
-The following instructions apply to a complete private checkout containing the excluded risk and
-unifier components. Create the Python environment first. CMake will use its interpreter when
-building the pybind11 extension.
+Run the following commands from the repository root. Create the Python environment first;
+CMake will use its interpreter when building the pybind11 extension.
 
 ```bash
 cd core
@@ -275,8 +271,8 @@ cmake -S . -B build \
 cmake --build build -j
 ```
 
-Private checkouts contain additional adapter-specific build notes and verification history. Keep
-`account.mode: paper` for v0.
+Keep `account.mode: paper` for v0. Credentials and operator-specific configurations must remain
+local.
 
 ## Operational constraints
 
